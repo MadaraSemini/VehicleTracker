@@ -1,7 +1,9 @@
+from kalmanfilter import KalmanFilter
 import cv2
 import numpy as np
 
-cap=cv2.VideoCapture('Video2.mp4')
+cap=cv2.VideoCapture('los_angeles.mp4')
+
 targetWidthAndHeight=320
 confThreshold=0.5
 nmsThreshold=0.3
@@ -12,6 +14,11 @@ with open(classFile,'rt') as file:
     classes=file.read().strip('\n').split('\n')
 # print(classes)
 # print(len(classes))
+
+
+#load Kalman filter to predict
+kf=KalmanFilter()
+
 
 modelWeights='yolov3-tiny.weights'
 modelConfig='yolov3-tiny.cfg'
@@ -32,7 +39,9 @@ def detectObjects(outputs,img):
             scores=det[5:]
             classId=np.argmax(scores)
             confidence=scores[classId]
-            if confidence>confThreshold:
+
+            if confidence>confThreshold and classId==2 :
+
                 w,h=int(det[2]*wT),int(det[3]*hT)
                 x,y=int((det[0]*wT)-w/2),int((det[1]*hT)-h/2)
                 bbox.append([x,y,w,h])
@@ -46,16 +55,28 @@ def detectObjects(outputs,img):
 
         box=bbox[i]
         x,y,w,h=box[0],box[1],box[2],box[3]
+        cx=int(x+w/2)
+        cy=int(y+h/2)
+        predicted = kf.predict(cx, cy)
+       # cv2.circle(img,(cx,cy),20,(255,0,0),4)
+        cv2.circle(img, (650, 720), 20, (0, 0, 255), -1)
+        #cv2.circle(img, (predicted[0], predicted[1]), 10, (0, 255, 0), 4)
+        if 720-predicted[1]<200:
+            cv2.putText(img,"Warning",(50,100),cv2.FONT_HERSHEY_SIMPLEX,3,(0,0,255),3)
+
         cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,255),2)
-        cv2.putText(img,f'{classes[classIds[i]].upper()}{int(confs[i]*100)}%',
-                    (x,y-10),cv2.FONT_HERSHEY_SIMPLEX,0.6,(255,0,255),2)
+        cv2.putText(img,f'{classes[classIds[i]].upper()}{int(confs[i]*100)}%',(x,y-10),cv2.FONT_HERSHEY_SIMPLEX,0.6,(255,0,255),2)
 
 
 
 while True:
 
     try:
-        success,img=cap.read()
+        success,img1=cap.read()
+        if success is False:
+            break
+        img=cv2.resize(img1,(1300,720),fx=0,fy=0, interpolation = cv2.INTER_CUBIC)
+
     except KeyboardInterrupt:
         continue
 
